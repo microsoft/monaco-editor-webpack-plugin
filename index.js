@@ -33,21 +33,26 @@ class MonacoWebpackPlugin {
     const languages = options.languages || Object.keys(languagesById);
     const features = options.features || Object.keys(featuresById);
     const output = options.output || '';
+    const worker = Object.assign(
+      { inline: false },
+      options.worker
+    );
     this.options = {
       languages: languages.map((id) => languagesById[id]).filter(Boolean),
       features: features.map(id => featuresById[id]).filter(Boolean),
       output,
+      worker,
     };
   }
 
   apply(compiler) {
-    const { languages, features, output } = this.options;
+    const { languages, features, output, worker } = this.options;
     const publicPath = getPublicPath(compiler);
     const modules = [EDITOR_MODULE].concat(languages).concat(features);
     const workers = modules.map(
       ({ label, alias, worker }) => worker && (mixin({ label, alias }, worker))
     ).filter(Boolean);
-    const rules = createLoaderRules(languages, features, workers, output, publicPath);
+    const rules = createLoaderRules(languages, features, workers, output, publicPath, worker.inline);
     const plugins = createPlugins(workers, output);
     addCompilerRules(compiler, rules);
     addCompilerPlugins(compiler, plugins);
@@ -65,10 +70,12 @@ function addCompilerPlugins(compiler, plugins) {
 }
 
 function getPublicPath(compiler) {
+  // Use a relative path if we are production to avoid cross domain issues
+  if (process.env.NODE_ENV === "production") return "";
   return compiler.options.output && compiler.options.output.publicPath || '';
 }
 
-function createLoaderRules(languages, features, workers, outputPath, publicPath) {
+function createLoaderRules(languages, features, workers, outputPath, publicPath, inline) {
   if (!languages.length && !features.length) { return []; }
   const languagePaths = flatArr(languages.map(({ entry }) => entry).filter(Boolean));
   const featurePaths = flatArr(features.map(({ entry }) => entry).filter(Boolean));
@@ -83,19 +90,53 @@ function createLoaderRules(languages, features, workers, outputPath, publicPath)
     workerPaths['scss'] = workerPaths['css'];
   }
 
-  const globals = {
+  const strStripTrailingSlashFunction = `
+    function stripTrailingSlash(str) {
+      return str.replace(/\\/$/, '');
+    }
+  `;
+  const getWorkerUrlSnippet = `
+    const pathPrefix = (typeof window.__webpack_public_path__ === 'string' ? window.__webpack_public_path__ : ${JSON.stringify(publicPath)});
+    const url = (pathPrefix ? stripTrailingSlash(pathPrefix) + '/' : '') + paths[label];
+  `;
+
+  let globals = {
     'MonacoEnvironment': `(function (paths) {
-      function stripTrailingSlash(str) {
-        return str.replace(/\\/$/, '');
-      }
+      ${strStripTrailingSlashFunction}
       return {
         getWorkerUrl: function (moduleId, label) {
-          const pathPrefix = (typeof window.__webpack_public_path__ === 'string' ? window.__webpack_public_path__ : ${JSON.stringify(publicPath)});
-          return (pathPrefix ? stripTrailingSlash(pathPrefix) + '/' : '') + paths[label];
+          ${getWorkerUrlSnippet}
+          return url;
         }
       };
     })(${JSON.stringify(workerPaths, null, 2)})`,
   };
+  if (inline) {
+    // TODO:
+    // getWorker doesn't support asynchronous, so I have to use synchronous XHR.
+    // until monaco editor support it
+    globals = {
+      'MonacoEnvironment':
+      `((paths) => ({ getWorker: (workerId, label, cb) => {
+        ${strStripTrailingSlashFunction}
+        ${getWorkerUrlSnippet}
+        const request = new XMLHttpRequest();
+        request.open('GET', url, false);
+        request.send(null);
+
+        if (request.status === 200) {
+          const worker = new Worker(
+            window.URL.createObjectURL(
+              new Blob([requestText])));
+          return worker;
+        }
+        throw new Error('Cannot load remote worker script, URL:' + url);
+      }}))(${
+        JSON.stringify(workerPaths, null, 2)
+      })
+      `
+    }
+  }
   return [
     {
       test: /monaco-editor\/esm\/vs\/editor\/editor.(api|main).js/,
