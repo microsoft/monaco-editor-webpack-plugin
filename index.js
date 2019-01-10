@@ -28,10 +28,31 @@ const languagesById = fromPairs(
 );
 const featuresById = mapValues(FEATURES, (feature, key) => mixin({ label: key }, feature))
 
+function getFeaturesIds(userFeatures, predefinedFeaturesById) {
+  function notContainedIn(arr) {
+    return (element) => arr.indexOf(element) === -1;
+  }
+
+  let featuresIds;
+
+  if (userFeatures.length) {
+    const excludedFeatures = userFeatures.filter(f => f[0] === '!').map(f => f.slice(1));
+    if (excludedFeatures.length) {
+      featuresIds = Object.keys(predefinedFeaturesById).filter(notContainedIn(excludedFeatures))
+    } else {
+      featuresIds = userFeatures;
+    }
+  } else {
+    featuresIds = Object.keys(predefinedFeaturesById);
+  }
+
+  return featuresIds;
+}
+
 class MonacoWebpackPlugin {
   constructor(options = {}) {
     const languages = options.languages || Object.keys(languagesById);
-    const features = options.features || Object.keys(featuresById);
+    const features = getFeaturesIds(options.features || [], featuresById);
     const output = options.output || '';
     const worker = Object.assign(
       { inline: false },
@@ -100,6 +121,12 @@ function createLoaderRules(languages, features, workers, outputPath, publicPath,
     const url = (pathPrefix ? stripTrailingSlash(pathPrefix) + '/' : '') + paths[label];
   `;
 
+  if (workerPaths['html']) {
+    // handlebars, razor and html share the same worker
+    workerPaths['handlebars'] = workerPaths['html'];
+    workerPaths['razor'] = workerPaths['html'];
+  }
+
   let globals = {
     'MonacoEnvironment': `(function (paths) {
       ${strStripTrailingSlashFunction}
@@ -139,7 +166,7 @@ function createLoaderRules(languages, features, workers, outputPath, publicPath,
   }
   return [
     {
-      test: /monaco-editor\/esm\/vs\/editor\/editor.(api|main).js/,
+      test: /monaco-editor[/\\]esm[/\\]vs[/\\]editor[/\\]editor.(api|main).js/,
       use: [
         {
           loader: INCLUDE_LOADER_PATH,
