@@ -147,17 +147,72 @@ function createLoaderRules(languages, features, workers, outputPath, publicPath,
       `((paths) => ({ getWorker: (workerId, label, cb) => {
         ${strStripTrailingSlashFunction}
         ${getWorkerUrlSnippet}
-        const request = new XMLHttpRequest();
-        request.open('GET', url, false);
-        request.send(null);
-
-        if (request.status === 200) {
-          const worker = new Worker(
-            window.URL.createObjectURL(
-              new Blob([requestText])));
-          return worker;
+        function AsyncBlobWorker(url) {
+          this._url = url;
+          this._actionQueue = [];
+          this._getXHRWorker(this._url, (error, worker) => {
+            if (error) throw error;
+            this._worker = worker;
+            this._hookWorker();
+          });
         }
-        throw new Error('Cannot load remote worker script, URL:' + url);
+
+        AsyncBlobWorker.prototype._hookWorker = function _hookWorker() {
+          this._worker.onerror = (function () {
+            if(this.onerror) {
+              this.onerror.apply(this, arguments);
+            }
+          }).bind(this);
+          this._worker.onmessage = (function () {
+            if(this.onmessage) {
+              this.onmessage.apply(this, arguments);
+            }
+          }).bind(this);
+          this._worker.onmessageerror = (function () {
+            if(this.onmessageerror) {
+              this.onmessageerror.apply(this, arguments);
+            }
+          }).bind(this);
+          this._actionQueue.map(action => {
+            if(action.type === 'postMessage') {
+              this._worker.postMessage.apply(this._worker, action.arguments);
+            }
+            if(action.type === 'terminate') {
+              this._worker.terminate();
+            }
+          });
+        }
+
+        AsyncBlobWorker.prototype._getXHRWorker = function _getXHRWorker(url, cb) {
+          const req = new XMLHttpRequest();
+          req.addEventListener('load', function() {
+            if (this.status === 200) {
+              const worker = new Worker(
+                window.URL.createObjectURL(
+                  new Blob([this.responseText])
+                )
+              );
+              return cb(null, worker);
+            }
+            return cb(new Error('Failed to load worker script as blob'));
+          });
+          req.open('get', url, true)
+          req.send();
+        }
+        AsyncBlobWorker.prototype.postMessage = function postMessage() {
+          if(this._worker) return this._worker.postMessage.apply(this._worker, arguments);
+          return this._actionQueue.push({
+            type: 'postMessage',
+            arguments: arguments,
+          });
+        }
+        AsyncBlobWorker.prototype.terminate = function terminate() {
+          if(this._worker) return this._worker.terminate();
+          return this._actionQueue.push({
+            type: 'terminate'
+          });
+        }
+        return new AsyncBlobWorker(url);
       }}))(${
         JSON.stringify(workerPaths, null, 2)
       })
