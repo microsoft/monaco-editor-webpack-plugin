@@ -68,7 +68,7 @@ class MonacoWebpackPlugin {
 
   apply(compiler) {
     const { languages, features, output, worker } = this.options;
-    const publicPath = getPublicPath(compiler);
+    const publicPath = getPublicPath(compiler, !worker.inline);
     const modules = [EDITOR_MODULE].concat(languages).concat(features);
     const workers = modules.map(
       ({ label, alias, worker }) => worker && (mixin({ label, alias }, worker))
@@ -90,9 +90,9 @@ function addCompilerPlugins(compiler, plugins) {
   plugins.forEach((plugin) => plugin.apply(compiler));
 }
 
-function getPublicPath(compiler) {
+function getPublicPath(compiler, willAvoidCrossDomain) {
   // Use a relative path if we are production to avoid cross domain issues
-  if (process.env.NODE_ENV === "production") return "";
+  if (willAvoidCrossDomain && process.env.NODE_ENV === "production") return "";
   return compiler.options.output && compiler.options.output.publicPath || '';
 }
 
