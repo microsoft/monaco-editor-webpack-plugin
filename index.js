@@ -139,8 +139,8 @@ function createLoaderRules(languages, features, workers, outputPath, publicPath,
     })(${JSON.stringify(workerPaths, null, 2)})`,
   };
   if (inline) {
-    // TODO:
-    // getWorker doesn't support asynchronous, so I have to use synchronous XHR.
+    // getWorker doesn't support asynchronous, so I have to simulate AsyncWorker as an Sync Worker.
+    // to resolve cross domain issue.
     // until monaco editor support it
     globals = {
       'MonacoEnvironment':
