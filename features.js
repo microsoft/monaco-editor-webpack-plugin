@@ -1,4 +1,6 @@
-module.exports = {
+const path = require('path');
+
+let FEATURES = {
   accessibilityHelp: {
     entry: 'vs/editor/standalone/browser/accessibilityHelp/accessibilityHelp',
     worker: undefined,
@@ -167,3 +169,15 @@ module.exports = {
     worker: undefined,
   },
 };
+
+FEATURES = Object.keys(FEATURES).reduce(function(features, key) {
+  try {
+    if(require.resolve(path.join('monaco-editor', 'esm', FEATURES[key].entry))) {
+      features[key] = FEATURES[key];
+    }
+  }catch(e) {
+  }
+  return features;
+}, {});
+
+module.exports = FEATURES;

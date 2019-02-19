@@ -1,4 +1,4 @@
-module.exports = {
+let LANGUAGES = {
   apex: {
     entry: 'vs/basic-languages/apex/apex.contribution',
     worker: undefined,
@@ -279,3 +279,20 @@ module.exports = {
     alias: undefined,
   },
 };
+
+
+LANGUAGES = Object.keys(LANGUAGES).reduce(function(languages, key) {
+  try {
+    let entry = LANGUAGES[key].entry;
+    if(!Array.isArray(entry)) {
+      entry = [entry];
+    }
+    const resolve = (path)  => require.resolve(path.join('monaco-editor', 'esm', path));
+    entry.map(resolve); // throw error, if does not exist
+    languages[key] = LANGUAGES[key];
+  }catch(e) {
+  }
+  return languages;
+}, {});
+
+module.exports = LANGUAGES;
