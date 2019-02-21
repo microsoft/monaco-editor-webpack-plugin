@@ -1,3 +1,4 @@
+const path = require('path');
 let LANGUAGES = {
   apex: {
     entry: 'vs/basic-languages/apex/apex.contribution',
@@ -287,7 +288,7 @@ LANGUAGES = Object.keys(LANGUAGES).reduce(function(languages, key) {
     if(!Array.isArray(entry)) {
       entry = [entry];
     }
-    const resolve = (path)  => require.resolve(path.join('monaco-editor', 'esm', path));
+    const resolve = (p)  => require.resolve(path.join('monaco-editor', 'esm', p));
     entry.map(resolve); // throw error, if does not exist
     languages[key] = LANGUAGES[key];
   }catch(e) {
