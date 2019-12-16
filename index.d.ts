@@ -8,6 +8,11 @@ interface IMonacoEditorWebpackPluginOpts {
     output?: string;
 
     /**
+     * custom worker js require baseUrl
+     */
+    baseUrl?: string
+
+    /**
      * Include only a subset of the languages supported.
      */
     languages?: string[];

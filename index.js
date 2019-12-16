@@ -54,10 +54,12 @@ class MonacoWebpackPlugin {
     const languages = options.languages || Object.keys(languagesById);
     const features = getFeaturesIds(options.features || [], featuresById);
     const output = options.output || '';
+    const baseUrl = options.baseUrl;
     this.options = {
       languages: languages.map((id) => languagesById[id]).filter(Boolean),
       features: features.map(id => featuresById[id]).filter(Boolean),
       output,
+      baseUrl,
     };
   }
 
@@ -68,7 +70,8 @@ class MonacoWebpackPlugin {
     const workers = modules.map(
       ({ label, alias, worker }) => worker && (mixin({ label, alias }, worker))
     ).filter(Boolean);
-    const rules = createLoaderRules(languages, features, workers, output, publicPath);
+    const baseUrl = this.options.baseUrl || output;
+    const rules = createLoaderRules(languages, features, workers, baseUrl, publicPath);
     const plugins = createPlugins(workers, output);
     addCompilerRules(compiler, rules);
     addCompilerPlugins(compiler, plugins);
@@ -89,11 +92,11 @@ function getPublicPath(compiler) {
   return compiler.options.output && compiler.options.output.publicPath || '';
 }
 
-function createLoaderRules(languages, features, workers, outputPath, publicPath) {
+function createLoaderRules(languages, features, workers, baseUrl, publicPath) {
   if (!languages.length && !features.length) { return []; }
   const languagePaths = flatArr(languages.map(({ entry }) => entry).filter(Boolean));
   const featurePaths = flatArr(features.map(({ entry }) => entry).filter(Boolean));
-  const workerPaths = fromPairs(workers.map(({ label, output }) => [label, path.join(outputPath, output)]));
+  const workerPaths = fromPairs(workers.map(({ label, output }) => [label, path.join(baseUrl, output)]));
   if (workerPaths['typescript']) {
     // javascript shares the same worker
     workerPaths['javascript'] = workerPaths['typescript'];
@@ -143,16 +146,16 @@ function createLoaderRules(languages, features, workers, outputPath, publicPath)
 function createPlugins(workers, outputPath) {
   return (
     []
-    .concat(uniqBy(workers, ({ id }) => id).map(({ id, entry, output }) =>
-      new AddWorkerEntryPointPlugin({
-        id,
-        entry: resolveMonacoPath(entry),
-        filename: path.join(outputPath, output),
-        plugins: [
-          new webpack.optimize.LimitChunkCountPlugin({ maxChunks: 1 }),
-        ],
-      })
-    ))
+      .concat(uniqBy(workers, ({ id }) => id).map(({ id, entry, output }) =>
+        new AddWorkerEntryPointPlugin({
+          id,
+          entry: resolveMonacoPath(entry),
+          filename: path.join(outputPath, output),
+          plugins: [
+            new webpack.optimize.LimitChunkCountPlugin({ maxChunks: 1 }),
+          ],
+        })
+      ))
   );
 }
 
