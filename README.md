@@ -10,6 +10,7 @@ npm install monaco-editor-webpack-plugin
 ## Using
 * `webpack.config.js`:
 ```js
+const path = require('path');
 const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
 
 module.exports = {
@@ -58,11 +59,11 @@ Options can be passed in to `MonacoWebpackPlugin`. They can be used to generate 
 
   Some languages share the same web worker. If one of the following languages is included, you must also include the language responsible for instantiating their shared worker:
 
-  | Language      | Instantiator  |
-  | ------------- | ------------- |
-  | javascript    | typescript    |
-  | handlebars    | html          |
-  | scss, less    | css           |
+  | Language   | Instantiator |
+  | ---------- | ------------ |
+  | javascript | typescript   |
+  | handlebars | html         |
+  | scss, less | css          |
 
 
 
@@ -73,10 +74,10 @@ Options can be passed in to `MonacoWebpackPlugin`. They can be used to generate 
 ## Version Matrix
 
 | `monaco-editor-webpack-plugin` | `monaco-editor` |
-|---|---|
-| `1.9.x` | `0.20.x` |
-| `1.8.x` | `0.19.x` |
-| `1.7.x` | `0.18.x`
+| ------------------------------ | --------------- |
+| `1.9.x`                        | `0.20.x`        |
+| `1.8.x`                        | `0.19.x`        |
+| `1.7.x`                        | `0.18.x`        |
 
 ## Contributing
 
