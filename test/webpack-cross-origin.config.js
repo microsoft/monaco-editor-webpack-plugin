@@ -1,4 +1,5 @@
 const MonacoWebpackPlugin = require('../out/index.js');
+const NodePolyfillPlugin = require('node-polyfill-webpack-plugin')
 const path = require('path');
 
 const ASSET_PATH = 'http://localhost:8088/monaco-editor-webpack-plugin/test/dist/';
@@ -22,6 +23,7 @@ module.exports = {
         }]
     },
     plugins: [
-        new MonacoWebpackPlugin()
+        new MonacoWebpackPlugin(),
+        new NodePolyfillPlugin(),
     ]
 };
